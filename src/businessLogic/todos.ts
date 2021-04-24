@@ -6,25 +6,27 @@ import { uuid } from 'uuidv4';
 
 const todoAccess = new TodoAccess()
 
-export async function getAllTodos(): Promise<TodoItem[]> {
-  return todoAccess.getAllTodos()
+export async function getAllTodos(userId: String): Promise<TodoItem[]> {
+  return todoAccess.getAllTodos(userId)
 }
 
-export async function updateTodo(todoId, updateBody) {
-    return await todoAccess.updateTodo(todoId, updateBody)
+export async function updateTodo(todoId, updateBody, userId: String) {
+    return await todoAccess.updateTodo(todoId, updateBody, userId)
 }
 
-export async function deleteTodo(todoId) {
-  return await todoAccess.deleteTodo(todoId)
+export async function deleteTodo(todoId, userId) {
+  return await todoAccess.deleteTodo(todoId, userId)
 }
 
 export async function createTodo(
-  createTodoRequest: CreateTodoRequest
+  createTodoRequest: CreateTodoRequest,
+  userId: string
 ): Promise<TodoItem> {
 
   const itemId = uuid()
 
   return await todoAccess.createTodo({
+    userId,
     todoId: itemId,
     name: createTodoRequest.name,
     dueDate: createTodoRequest.dueDate,

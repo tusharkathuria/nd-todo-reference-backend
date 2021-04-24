@@ -4,16 +4,18 @@ import { APIGatewayProxyResult } from 'aws-lambda'
 import { createTodo } from '../../businessLogic/todos'
 import { CreateTodoRequest } from '../../requests/CreateTodoRequest'
 import { middyfy } from '../../utils/middleware'
+import { getUserId } from '../utils'
 
 const createTodoHandler = async (event): Promise<APIGatewayProxyResult> => {
   console.log("Processing event: ", event)
   
   const newTodo: CreateTodoRequest = event.body
-  const newItem = await createTodo(newTodo)
+  const userId = getUserId(event)
+  const newItem = await createTodo(newTodo, userId)
 
   return {
     statusCode: 201,
-    body: JSON.stringify({ newItem })
+    body: JSON.stringify({ item: newItem })
   }
 }
 

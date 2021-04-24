@@ -39,7 +39,8 @@ provider:
   environment:
     TODOS_TABLE: Todos-${self:provider.stage}
     TODOS_S3_BUCKET: 629226848507-serverless-todos-${self:provider.stage}
-    SIGNED_URL_EXPIRATION: 300
+    SIGNED_URL_EXPIRATION: 300,
+    USER_ID_INDEX: UserIdIndex
 
   iamRoleStatements:
     - Effect: Allow
@@ -54,6 +55,7 @@ provider:
         - dynamodb:GetItem
         - dynamodb:UpdateItem
         - dynamodb:DeleteItem
+        - dynamodb:Query
       Resource: arn:aws:dynamodb:${self:provider.region}:*:table/${self:provider.environment.TODOS_TABLE}
     - Effect: Allow
       Action:
@@ -63,8 +65,8 @@ provider:
 
 functions:
 
-  # Auth:
-  #   handler: src/lambda/auth/handler.main
+  Auth:
+    handler: src/lambda/auth/auth0Authorizer.handler
 
   GetTodos:
     handler: src/lambda/http/getTodos.handler
@@ -73,6 +75,7 @@ functions:
           method: get
           path: todos
           cors: true
+          authorizer: Auth
 
   CreateTodo:
     handler: src/lambda/http/createTodo.handler
@@ -81,6 +84,7 @@ functions:
           method: post
           path: todos
           cors: true
+          authorizer: Auth
 
   UpdateTodo:
     handler: src/lambda/http/updateTodo.handler
@@ -88,6 +92,8 @@ functions:
       - http:
           method: patch
           path: todos/{todoId}
+          authorizer: Auth
+          cors: true
 
   DeleteTodo:
     handler: src/lambda/http/deleteTodo.handler
@@ -95,6 +101,8 @@ functions:
       - http:
           method: delete
           path: todos/{todoId}
+          authorizer: Auth
+          cors: true
 
   GenerateUploadUrl:
     handler: src/lambda/http/generateUploadUrl.handler
@@ -102,19 +110,21 @@ functions:
       - http:
           method: post
           path: todos/{todoId}/attachment
+          authorizer: Auth
+          cors: true
 
 resources:
   Resources:
-    # GatewayResponseDefault4XX:
-    #   Type: AWS::ApiGateway::GatewayResponse
-    #   Properties:
-    #     ResponseParameters:
-    #       gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
-    #       gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
-    #       gatewayresponse.header.Access-Control-Allow-Methods: "'GET,OPTIONS,POST'"
-    #     ResponseType: DEFAULT_4XX
-    #     RestApiId:
-    #       Ref: ApiGatewayRestApi
+    GatewayResponseDefault4XX:
+      Type: AWS::ApiGateway::GatewayResponse
+      Properties:
+        ResponseParameters:
+          gatewayresponse.header.Access-Control-Allow-Origin: "'*'"
+          gatewayresponse.header.Access-Control-Allow-Headers: "'Content-Type,X-Amz-Date,Authorization,X-Api-Key,X-Amz-Security-Token'"
+          gatewayresponse.header.Access-Control-Allow-Methods: "'GET,OPTIONS,POST'"
+        ResponseType: DEFAULT_4XX
+        RestApiId:
+          Ref: ApiGatewayRestApi
 
     TodosDynamoDBTable:
       Type: AWS::DynamoDB::Table
@@ -122,11 +132,26 @@ resources:
         AttributeDefinitions:
           - AttributeName: todoId
             AttributeType: S
+          - AttributeName: userId
+            AttributeType: S
+          - AttributeName: createdAt
+            AttributeType: S
         KeySchema:
-          - AttributeName: todoId
+          - AttributeName: userId
             KeyType: HASH
+          - AttributeName: todoId
+            KeyType: RANGE
         BillingMode: PAY_PER_REQUEST
         TableName: ${self:provider.environment.TODOS_TABLE}
+        GlobalSecondaryIndexes:
+          - IndexName: ${self:provider.environment.USER_ID_INDEX}
+            KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+            - AttributeName: createdAt
+              KeyType: RANGE
+            Projection:
+              ProjectionType: ALL
 
     AttachmentsBucket:
       Type: AWS::S3::Bucket
