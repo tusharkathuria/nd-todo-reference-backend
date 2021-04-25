@@ -2,7 +2,10 @@ import * as AWS from 'aws-sdk'
 import * as AWSXRay from 'aws-xray-sdk'
 import { DocumentClient } from 'aws-sdk/clients/dynamodb'
 import { TodoItem } from '../models/TodoItem'
-import { UpdateTodoRequest } from '../requests/UpdateTodoRequest'
+import { TodoUpdate } from '../models/TodoUpdate'
+import { createLogger } from '../utils/logger';
+
+const logger = createLogger('todosDataAccess');
 
 const XAWS = AWSXRay.captureAWS(AWS)
 export class TodoAccess {
@@ -13,6 +16,8 @@ export class TodoAccess {
   }
 
   async getAllTodos(userId: String): Promise<TodoItem[]> {
+    logger.info(`Querying todos for user with id ${userId}`)
+
     const result = await this.docClient.query({
       TableName: this.todosTable,
       KeyConditionExpression: "userId = :userId",
@@ -23,19 +28,29 @@ export class TodoAccess {
     }).promise()
 
     const items = result.Items
+
+    logger.info(`Todos query result for user ${userId}: ${items}`)
+
     return items as TodoItem[]
   }
 
   async createTodo(todoItem: TodoItem): Promise<TodoItem> {
+    logger.info(`Creating todo for data ${todoItem}`)
+
     await this.docClient.put({
       TableName: this.todosTable,
       Item: todoItem
     }).promise()
 
+    logger.info(`Created todo ${todoItem}`)
+
     return todoItem
   }
 
-  async updateTodo(todoId: String, updateBody: UpdateTodoRequest, userId: String) {
+  async updateTodo(todoId: String, updateBody: TodoUpdate, userId: String) {
+
+    logger.info(`Updating todo for todoId ${todoId} and userid ${userId}`)
+
     var params = {
         TableName: this.todosTable,
         Key: { todoId, userId },
@@ -51,18 +66,26 @@ export class TodoAccess {
         ReturnValues: "ALL_NEW"
     };
 
-    console.log("Updating the item")
+    const updatedItem =  await this.docClient.update(params).promise()
 
-    return await this.docClient.update(params).promise()
+    logger.info(`Updated todo for todoId ${todoId} and userid ${userId}. New item: ${updatedItem}`)
+
+    return updatedItem
   }
 
   async deleteTodo(todoId: String, userId: String) {
+    logger.info(`Deleting todo for todoId ${todoId} and userid ${userId}`)
+
     var params = {
         TableName: this.todosTable,
         Key: {todoId, userId}
     }
 
-    return await this.docClient.delete(params).promise()
+    const result = await this.docClient.delete(params).promise()
+
+    logger.info(`Deleted todo for todoId ${todoId} and userid ${userId}`)
+
+    return result
   }
 }
 

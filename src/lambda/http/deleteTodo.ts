@@ -4,20 +4,27 @@ import { APIGatewayProxyResult } from 'aws-lambda'
 import { deleteTodo } from '../../businessLogic/todos'
 import { middyfy } from '../../utils/middleware'
 import { getUserId } from '../utils'
+import { createLogger } from '../../utils/logger';
 
-const getTodosHandler = async (event): Promise<APIGatewayProxyResult> => {
-  console.log("Processing event: ", event)
+const logger = createLogger('deleteTodoLambda');
+
+const deleteTodoHandler = async (event): Promise<APIGatewayProxyResult> => {
+  logger.info(`Processing event: ${event}`)
 
   const todoId = event.pathParameters.todoId
   
   await deleteTodo(todoId, getUserId(event))
 
-  return {
+  const response =  {
     statusCode: 200,
     body: JSON.stringify({ 
       message: "Successfully deleted"
     })
   }
+
+  logger.info(`Event Response: ${response}`)
+
+  return response
 }
 
-export const handler = middyfy(getTodosHandler);
+export const handler = middyfy(deleteTodoHandler);
